@@ -1,0 +1,8 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import ApplicationForm from '../../../components/ApplicationForm.vue';
+const { id } = Astro.params;
+---
+<Layout title="Edit Application">
+  <ApplicationForm id={id} client:load />
+</Layout>

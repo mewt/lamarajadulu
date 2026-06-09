@@ -1,0 +1,168 @@
+---
+import '../styles/global.css';
+const { title = 'JobTracker' } = Astro.props;
+const path = Astro.url.pathname;
+---
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title} · JobTracker</title>
+  <script is:inline>
+    (function () {
+      const t = localStorage.getItem('theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <a href="/" class="brand">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+        </svg>
+        <span>JobTracker</span>
+      </a>
+
+      <nav>
+        <a href="/" class={`nav-link ${path === '/' ? 'active' : ''}`}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+            <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+          </svg>
+          Dashboard
+        </a>
+        <a href="/add" class={`nav-link ${path === '/add' ? 'active' : ''}`}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+          </svg>
+          Add Application
+        </a>
+      </nav>
+
+      <button class="theme-toggle" id="theme-btn" type="button">
+        <svg id="theme-icon-dark" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg id="theme-icon-light" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+        <span id="theme-label">Light mode</span>
+      </button>
+    </aside>
+
+    <main class="content">
+      <slot />
+    </main>
+  </div>
+
+  <script>
+    function syncThemeUI(theme: string) {
+      const darkIcon  = document.getElementById('theme-icon-dark')  as HTMLElement;
+      const lightIcon = document.getElementById('theme-icon-light') as HTMLElement;
+      const label     = document.getElementById('theme-label')      as HTMLElement;
+      if (theme === 'dark') {
+        darkIcon.style.display  = 'block';
+        lightIcon.style.display = 'none';
+        label.textContent = 'Light mode';
+      } else {
+        darkIcon.style.display  = 'none';
+        lightIcon.style.display = 'block';
+        label.textContent = 'Dark mode';
+      }
+    }
+
+    const current = localStorage.getItem('theme') || 'dark';
+    syncThemeUI(current);
+
+    document.getElementById('theme-btn')?.addEventListener('click', () => {
+      const next = (localStorage.getItem('theme') || 'dark') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      syncThemeUI(next);
+    });
+  </script>
+</body>
+</html>
+
+<style>
+  .layout {
+    display: flex;
+    min-height: 100vh;
+  }
+
+  .sidebar {
+    width: 220px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 20px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    position: fixed;
+    top: 0; left: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    padding: 4px 8px;
+    text-decoration: none;
+  }
+  .brand svg { color: var(--primary); flex-shrink: 0; }
+
+  nav { display: flex; flex-direction: column; gap: 2px; }
+
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: var(--radius-sm);
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 13.5px;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+  .nav-link:hover { color: var(--text); background: var(--surface-2); }
+  .nav-link.active { color: var(--primary); background: var(--primary-subtle); }
+  .nav-link svg { flex-shrink: 0; }
+
+  .theme-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 13px;
+    margin-top: auto;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .theme-toggle:hover { color: var(--text); border-color: var(--border-light); }
+
+  .content {
+    margin-left: 220px;
+    flex: 1;
+    padding: 32px 36px;
+    max-width: calc(100vw - 220px);
+  }
+</style>

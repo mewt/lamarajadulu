@@ -1,0 +1,8 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import ApplicationDetail from '../../components/ApplicationDetail.vue';
+const { id } = Astro.params;
+---
+<Layout title="Application">
+  <ApplicationDetail id={id} client:load />
+</Layout>
