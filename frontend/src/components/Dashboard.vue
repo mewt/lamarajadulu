@@ -318,4 +318,18 @@ onMounted(async () => {
 .empty-icon { color: var(--muted); margin-bottom: 4px; }
 .empty-title { font-size: 15px; font-weight: 600; color: var(--text); }
 .empty-sub   { font-size: 13px; }
+
+@media (max-width: 768px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .stat-card.stat-total { grid-column: span 2; flex-direction: row; align-items: center; gap: 12px; }
+  .stat-card.stat-total .stat-num { font-size: 22px; }
+
+  .filters { flex-direction: column; align-items: stretch; gap: 10px; }
+  .search-wrap { max-width: 100%; }
+  .filter-tabs { overflow-x: auto; }
+
+  .app-row { flex-wrap: wrap; gap: 10px; }
+  .app-right { order: 2; }
+  .app-actions { opacity: 1; order: 3; width: 100%; justify-content: flex-end; }
+}
 </style>

@@ -282,4 +282,10 @@ async function submit() {
   font-size: 11px;
   color: var(--muted);
 }
+
+@media (max-width: 768px) {
+  .form-layout { grid-template-columns: 1fr; }
+  .field-row    { grid-template-columns: 1fr; }
+  .tips-panel   { position: static; }
+}
 </style>
