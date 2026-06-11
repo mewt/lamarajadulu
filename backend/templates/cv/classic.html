@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<style>
+  @page { size: A4; margin: 20mm 22mm; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Georgia, 'Times New Roman', Times, serif;
+    color: #1a1a1a;
+    font-size: 10.5pt;
+    line-height: 1.6;
+  }
+  .cv h1 {
+    font-size: 22pt;
+    font-weight: 700;
+    text-align: center;
+    margin: 0 0 4pt 0;
+    letter-spacing: 0.5px;
+  }
+  .cv h1 + p {
+    margin: 0 0 16pt 0;
+    text-align: center;
+    font-size: 9.5pt;
+    color: #444;
+    border-bottom: 1px solid #999;
+    padding-bottom: 12pt;
+  }
+  .cv h2 {
+    font-size: 11.5pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    border-bottom: 1px solid #1a1a1a;
+    padding-bottom: 2pt;
+    margin: 16pt 0 8pt 0;
+  }
+  .cv h2:first-of-type { margin-top: 0; }
+  .cv h3 {
+    font-size: 10.5pt;
+    font-weight: 700;
+    font-style: italic;
+    margin: 9pt 0 2pt 0;
+  }
+  .cv p { margin: 0 0 6pt 0; }
+  .cv ul { margin: 4pt 0 8pt 0; padding-left: 18pt; }
+  .cv li { margin-bottom: 3pt; }
+  .cv a { color: #1a1a1a; }
+  .cv strong { color: #000; }
+</style>
+</head>
+<body>
+  <div class="cv">{{CV_CONTENT}}</div>
+</body>
+</html>

@@ -14,6 +14,8 @@ app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173' }));
 app.use(express.json());
 
 app.use('/api/applications', require('./routes/applications'));
+app.use('/api/applications', require('./routes/cvTailor'));
+app.use('/api/applications', require('./routes/interview'));
 app.use('/api/analyze', require('./routes/analyze'));
 
 app.listen(PORT, () => {

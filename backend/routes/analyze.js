@@ -1,12 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const OpenAI = require('openai');
 const db = require('../db');
-
-const deepseek = new OpenAI({
-  apiKey: process.env.DEEPSEEK_API_KEY,
-  baseURL: 'https://api.deepseek.com',
-});
+const deepseek = require('../services/deepseek');
 
 router.post('/:applicationId', async (req, res) => {
   const app = db.prepare('SELECT * FROM applications WHERE id = ?').get(req.params.applicationId);

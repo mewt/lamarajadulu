@@ -74,13 +74,19 @@
               <div class="cv-date">Uploaded {{ formatDate(app.cv_uploaded_at) }}</div>
             </div>
             <div class="cv-actions">
+              <button class="btn-ghost btn-sm" type="button" @click="togglePreview">{{ showPreview ? 'Hide Preview' : 'Preview' }}</button>
               <button class="btn-ghost btn-sm" type="button" @click="$refs.cvInput.click()">Replace</button>
               <button class="btn-danger btn-sm" type="button" @click="removeCv">Remove</button>
             </div>
           </div>
 
+          <div v-if="showPreview" class="cv-preview-box">
+            <div v-if="previewLoading" class="spinner" style="width:18px;height:18px"></div>
+            <div v-else class="md-render" v-html="renderedCvPreview"></div>
+          </div>
+
           <div
-            v-else
+            v-if="!app.cv_filename"
             class="cv-drop"
             :class="{ dragging: cvDragging }"
             @dragover.prevent="cvDragging = true"
@@ -91,7 +97,7 @@
             <div v-if="!cvUploading">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--muted);margin-bottom:10px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               <p style="font-weight:600;font-size:13px;margin-bottom:3px">Upload a CV for this application</p>
-              <p style="font-size:12px;color:var(--muted)">Drag & drop or click — PDF or DOCX, max 10MB</p>
+              <p style="font-size:12px;color:var(--muted)">Drag & drop or click — PDF, DOCX, RTF or MD, max 10MB</p>
             </div>
             <div v-else class="cv-uploading">
               <div class="spinner" style="width:24px;height:24px"></div>
@@ -99,7 +105,7 @@
             </div>
           </div>
 
-          <input ref="cvInput" type="file" accept=".pdf,.docx" style="display:none" @change="onCvFileChange" />
+          <input ref="cvInput" type="file" accept=".pdf,.docx,.rtf,.md" style="display:none" @change="onCvFileChange" />
           <div v-if="cvError" class="error-msg" style="margin-top:12px;margin-bottom:0">{{ cvError }}</div>
         </div>
 
@@ -187,6 +193,61 @@
             </ul>
           </div>
         </div>
+
+        <!-- Tailor CV -->
+        <template v-if="analysis">
+          <div class="section-header">
+            <h2 class="section-title">Tailor Your CV</h2>
+            <button @click="tailorCv" class="btn-primary btn-sm" :disabled="tailoring">
+              <span v-if="tailoring" class="spinner" style="width:13px;height:13px"></span>
+              <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              {{ tailoredCv ? 'Regenerate' : 'Generate Tailored CV' }}
+            </button>
+          </div>
+
+          <div v-if="tailorError" class="error-msg">{{ tailorError }}</div>
+
+          <div v-if="!tailoredCv && !tailoring" class="card empty-analysis">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" style="color:var(--primary)"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            <p style="font-size:14px;font-weight:500;margin-bottom:4px;color:var(--text)">Tailor your CV for this role</p>
+            <p style="font-size:13px">Rewrites your existing CV — reordered and rephrased to highlight what matches this job. Nothing is invented.</p>
+          </div>
+
+          <div v-if="tailoring && !tailoredCv" class="card empty-analysis">
+            <div class="spinner"></div>
+            <p style="font-size:13px;margin-top:10px">Tailoring your CV for this role...</p>
+          </div>
+
+          <div v-if="tailoredCv" class="card tailor-card">
+            <p class="tailor-disclaimer">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              This is a reordered, rephrased version of your existing CV — no new experience or skills were added.
+            </p>
+
+            <div class="cv-preview md-render" v-html="renderedTailoredCv"></div>
+
+            <div class="export-section">
+              <div class="export-title">Create a New CV</div>
+              <p class="export-hint">Choose a template, then download.</p>
+              <div class="template-picker">
+                <button
+                  v-for="t in templates"
+                  :key="t.id"
+                  type="button"
+                  :class="['template-card', { active: selectedTemplate === t.id }]"
+                  @click="selectedTemplate = t.id"
+                >
+                  <span class="template-name">{{ t.name }}</span>
+                  <span class="template-desc">{{ t.description }}</span>
+                </button>
+              </div>
+              <div class="export-actions">
+                <a :href="downloadUrl('pdf')" class="btn-primary btn-sm" download>Download PDF</a>
+                <a :href="downloadUrl('md')" class="btn-ghost btn-sm" download>Download Markdown</a>
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
 
       <!-- Right col: Notes + JD -->
@@ -206,8 +267,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
+import { marked } from 'marked';
 
 const props = defineProps({ id: String });
 const app = ref(null);
@@ -218,6 +280,22 @@ const analyzeError = ref('');
 const cvUploading = ref(false);
 const cvDragging = ref(false);
 const cvError = ref('');
+
+const showPreview = ref(false);
+const previewLoading = ref(false);
+const cvPreviewContent = ref('');
+const renderedCvPreview = computed(() => marked.parse(cvPreviewContent.value || ''));
+
+const tailoredCv = ref(null);
+const tailoring = ref(false);
+const tailorError = ref('');
+const selectedTemplate = ref('modern');
+const templates = [
+  { id: 'modern',  name: 'Modern',  description: 'Accent color, bold section headings' },
+  { id: 'classic', name: 'Classic', description: 'Serif, traditional, ATS-friendly' },
+  { id: 'minimal', name: 'Minimal', description: 'Clean, grayscale, lots of whitespace' },
+];
+const renderedTailoredCv = computed(() => tailoredCv.value ? marked.parse(tailoredCv.value.content_markdown) : '');
 
 const statuses = [
   { value: 'wishlist',       label: 'Wishlist' },
@@ -285,6 +363,40 @@ async function removeCv() {
   await axios.delete(`/api/applications/${app.value.id}/cv`);
   app.value.cv_filename = null;
   app.value.cv_uploaded_at = null;
+  showPreview.value = false;
+  cvPreviewContent.value = '';
+  tailoredCv.value = null;
+}
+
+async function togglePreview() {
+  showPreview.value = !showPreview.value;
+  if (showPreview.value && !cvPreviewContent.value) {
+    previewLoading.value = true;
+    try {
+      const { data } = await axios.get(`/api/applications/${app.value.id}/cv`);
+      cvPreviewContent.value = data.content;
+    } finally {
+      previewLoading.value = false;
+    }
+  }
+}
+
+async function tailorCv() {
+  tailoring.value = true;
+  tailorError.value = '';
+  try {
+    const { data } = await axios.post(`/api/applications/${app.value.id}/cv/tailor`);
+    tailoredCv.value = data;
+  } catch (e) {
+    tailorError.value = e.response?.data?.error || 'CV tailoring failed.';
+  } finally {
+    tailoring.value = false;
+  }
+}
+
+function downloadUrl(format) {
+  if (!tailoredCv.value) return '#';
+  return `/api/applications/${app.value.id}/cv/tailored/${tailoredCv.value.id}/download?format=${format}&template=${selectedTemplate.value}`;
 }
 
 async function analyze() {
@@ -305,6 +417,10 @@ onMounted(async () => {
     const { data } = await axios.get(`/api/applications/${props.id}`);
     app.value = data;
     analysis.value = data.analysis;
+    if (analysis.value) {
+      const { data: tailored } = await axios.get(`/api/applications/${props.id}/cv/tailored`);
+      tailoredCv.value = tailored;
+    }
   } finally {
     loading.value = false;
   }
@@ -424,6 +540,49 @@ onMounted(async () => {
 .cv-drop:hover, .cv-drop.dragging { border-color: var(--primary); background: var(--primary-subtle); }
 .cv-uploading { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 
+.cv-preview-box {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+/* Markdown rendering (CV preview + tailored CV) */
+.md-render :deep(h1) {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 2px 0;
+  color: var(--text);
+}
+.md-render :deep(h1 + p) {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 14px 0;
+}
+.md-render :deep(h2) {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--primary);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+  margin: 18px 0 8px 0;
+}
+.md-render :deep(h2:first-of-type) { margin-top: 0; }
+.md-render :deep(h3) {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 12px 0 4px 0;
+}
+.md-render :deep(p) { font-size: 13px; color: var(--text-2); line-height: 1.6; margin: 0 0 6px 0; }
+.md-render :deep(ul) { margin: 4px 0 8px 0; padding-left: 18px; }
+.md-render :deep(li) { font-size: 13px; color: var(--text-2); line-height: 1.6; margin-bottom: 4px; }
+.md-render :deep(a) { color: var(--primary); }
+.md-render :deep(strong) { color: var(--text); }
+
 /* Analysis */
 .section-header { display: flex; align-items: center; justify-content: space-between; margin: 16px 0; }
 .section-title  { font-size: 15px; font-weight: 600; }
@@ -494,6 +653,70 @@ onMounted(async () => {
   font-size: 10px; font-weight: 700;
 }
 
+/* Tailor CV */
+.tailor-card { display: flex; flex-direction: column; gap: 16px; }
+
+.tailor-disclaimer {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--info-bg);
+  border: 1px solid rgba(96,165,250,0.25);
+  color: var(--info);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+.tailor-disclaimer svg { flex-shrink: 0; margin-top: 2px; }
+
+.cv-preview {
+  max-height: 480px;
+  overflow-y: auto;
+  padding: 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.export-section {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.export-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.export-hint { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+
+.template-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.template-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  color: var(--text);
+}
+.template-card:hover { border-color: var(--border-light); }
+.template-card.active { border-color: var(--primary); background: var(--primary-subtle); }
+.template-name { font-size: 13px; font-weight: 600; }
+.template-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
+
+.export-actions { display: flex; gap: 8px; }
+
 /* Side column */
 .side-card { margin-bottom: 0; }
 .notes-text { color: var(--text-2); white-space: pre-wrap; line-height: 1.7; font-size: 13px; }
@@ -508,5 +731,8 @@ onMounted(async () => {
   .body-grid { grid-template-columns: 1fr; }
   .hero-company { font-size: 17px; }
   .score-card { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .template-picker { grid-template-columns: 1fr; }
+  .export-actions { flex-direction: column; }
+  .export-actions .btn-primary, .export-actions .btn-ghost { justify-content: center; }
 }
 </style>

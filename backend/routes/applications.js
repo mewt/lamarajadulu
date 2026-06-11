@@ -4,6 +4,9 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const db = require('../db');
+const { extractCvMarkdown } = require('../services/cvParse');
+
+const ALLOWED_CV_EXTENSIONS = ['.pdf', '.docx', '.rtf', '.md', '.markdown'];
 
 const storage = multer.diskStorage({
   destination: path.join(__dirname, '../uploads'),
@@ -15,8 +18,8 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    if (ext === '.pdf' || ext === '.docx') return cb(null, true);
-    cb(new Error('Only PDF and DOCX files are supported'));
+    if (ALLOWED_CV_EXTENSIONS.includes(ext)) return cb(null, true);
+    cb(new Error('Only PDF, DOCX, RTF and MD files are supported'));
   },
 });
 
@@ -99,26 +102,15 @@ router.post('/:id/cv', upload.single('cv'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
     const ext = path.extname(req.file.originalname).toLowerCase();
-    let content = '';
+    const content = (await extractCvMarkdown(req.file.path, ext)).trim();
 
-    if (ext === '.pdf') {
-      const pdfParse = require('pdf-parse');
-      const buffer = fs.readFileSync(req.file.path);
-      const data = await pdfParse(buffer);
-      content = data.text;
-    } else if (ext === '.docx') {
-      const mammoth = require('mammoth');
-      const result = await mammoth.extractRawText({ path: req.file.path });
-      content = result.value;
-    }
-
-    if (!content.trim()) {
+    if (!content) {
       return res.status(400).json({ error: 'Could not extract text from the file. Try a different format.' });
     }
 
     db.prepare(
       'UPDATE applications SET cv_filename = ?, cv_content = ?, cv_uploaded_at = CURRENT_TIMESTAMP WHERE id = ?'
-    ).run(req.file.originalname, content.trim(), req.params.id);
+    ).run(req.file.originalname, content, req.params.id);
 
     res.json({ message: 'CV uploaded successfully', filename: req.file.originalname });
   } catch (err) {
@@ -127,10 +119,17 @@ router.post('/:id/cv', upload.single('cv'), async (req, res) => {
   }
 });
 
+router.get('/:id/cv', (req, res) => {
+  const app = db.prepare('SELECT cv_content FROM applications WHERE id = ?').get(req.params.id);
+  if (!app) return res.status(404).json({ error: 'Application not found' });
+  res.json({ content: app.cv_content || '' });
+});
+
 router.delete('/:id/cv', (req, res) => {
   const existing = db.prepare('SELECT * FROM applications WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Application not found' });
   db.prepare('UPDATE applications SET cv_filename = NULL, cv_content = NULL, cv_uploaded_at = NULL WHERE id = ?').run(req.params.id);
+  db.prepare('DELETE FROM tailored_cvs WHERE application_id = ?').run(req.params.id);
   res.status(204).end();
 });
 

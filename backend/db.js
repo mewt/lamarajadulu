@@ -38,6 +38,14 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS tailored_cvs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    application_id INTEGER NOT NULL,
+    content_markdown TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
+  );
 `);
 
 const appColumns = db.prepare('PRAGMA table_info(applications)').all().map((c) => c.name);
