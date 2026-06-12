@@ -53,10 +53,27 @@
         </div>
       </div>
 
+      <div class="mode-picker">
+        <button type="button" class="mode-card" :class="{ active: practiceMode === 'ai' }" @click="practiceMode = 'ai'">
+          <strong>AI Questions</strong>
+          <span>5 questions generated from this job's description and your CV — general, experience-based, and gap-probing.</span>
+        </button>
+        <button type="button" class="mode-card" :class="{ active: practiceMode === 'common' }" @click="practiceMode = 'common'">
+          <strong>Common Questions</strong>
+          <span>4 classic questions: introduce yourself, why this company, why you're leaving, and your questions for us.</span>
+        </button>
+      </div>
+
       <p class="prep-ready-desc">
-        We'll generate 5 interview questions based on this job description and your uploaded CV — a mix of general,
-        experience-based, and gap-probing questions. Answer each one (typed or spoken) and get instant feedback plus
-        a model answer grounded in your real experience.
+        <template v-if="practiceMode === 'ai'">
+          We'll generate 5 interview questions based on this job description and your uploaded CV — a mix of general,
+          experience-based, and gap-probing questions. Answer each one (typed or spoken) and get instant feedback plus
+          a model answer grounded in your real experience.
+        </template>
+        <template v-else>
+          Practice 4 questions almost every interview includes. Answer each one (typed or spoken) and get instant feedback
+          plus a model answer grounded in your real experience.
+        </template>
       </p>
 
       <div v-if="error" class="error-msg">{{ error }}</div>
@@ -79,20 +96,57 @@
 
       <div class="progress-track"><div class="progress-fill" :style="{ width: progressPct + '%' }"></div></div>
 
-      <div class="card qna-question-card">
-        <div class="qna-question-head">
-          <span class="qna-tag">Interview Question</span>
-          <button v-if="speechSupported" class="btn-ghost btn-sm" @click="speaking ? stopSpeaking() : speak(currentQuestion)">
-            <svg v-if="!speaking" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-            </svg>
-            <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M11 5 6 9H2v6h4l5 4V5z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/>
-            </svg>
-            {{ speaking ? 'Stop' : 'Read Aloud' }}
-          </button>
+      <div class="qna-main-row">
+        <div class="card qna-question-card">
+          <div class="qna-question-head">
+            <span class="qna-tag">Interview Question</span>
+            <button v-if="speechSupported" class="btn-ghost btn-sm" @click="speaking ? stopSpeaking() : speak(currentQuestion)">
+              <svg v-if="!speaking" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+              </svg>
+              <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 5 6 9H2v6h4l5 4V5z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/>
+              </svg>
+              {{ speaking ? 'Stop' : 'Read Aloud' }}
+            </button>
+          </div>
+          <p class="qna-question-text">{{ currentQuestion }}</p>
         </div>
-        <p class="qna-question-text">{{ currentQuestion }}</p>
+
+        <div v-if="cameraSupported" class="card camera-card">
+          <div class="camera-head">
+            <span class="qna-tag">Camera</span>
+            <button class="btn-ghost btn-sm" @click="toggleCamera" :disabled="recordingVideo">
+              {{ cameraEnabled ? 'Turn Off' : 'Enable Camera' }}
+            </button>
+          </div>
+
+          <div v-if="cameraEnabled" class="camera-body">
+            <video v-show="!recordedVideoUrl" ref="videoEl" class="camera-preview camera-live" autoplay muted playsinline></video>
+            <video v-if="recordedVideoUrl" class="camera-preview" :src="recordedVideoUrl" controls playsinline></video>
+
+            <div v-if="!recordedVideoUrl && faceDetectionSupported" class="face-status" :class="{ 'face-warn': faceDetected === false, 'face-ok': faceDetected === true }">
+              <template v-if="faceDetected === false">Look at the camera — face not detected</template>
+              <template v-else-if="faceDetected === true">Looking at the camera</template>
+              <template v-else>Checking…</template>
+            </div>
+
+            <div class="camera-record-row">
+              <button v-if="!recordedVideoUrl" class="btn-ghost btn-sm" :class="{ 'btn-recording': recordingVideo }" @click="toggleVideoRecording">
+                {{ recordingVideo ? `Stop · ${formatDuration(recordingDuration)}` : 'Record Answer' }}
+              </button>
+              <template v-else>
+                <span class="empty-sub">Recorded · {{ formatDuration(recordingDuration) }}</span>
+                <button class="btn-ghost btn-sm" @click="discardRecording">Re-record</button>
+              </template>
+            </div>
+            <p v-if="recognitionSupported" class="empty-sub">Recording also transcribes your answer into the box below.</p>
+            <p v-else class="empty-sub">Voice transcription isn't supported in this browser — type your answer manually.</p>
+          </div>
+          <p v-else class="empty-sub">Enable your camera to see yourself and optionally record this answer for review.</p>
+
+          <p class="empty-sub camera-note">Stays in your browser — nothing is uploaded.</p>
+        </div>
       </div>
 
       <div class="card">
@@ -117,7 +171,7 @@
               class="btn-ghost btn-sm"
               :class="{ 'btn-recording': recording }"
               @click="toggleRecording"
-              :disabled="!!feedback"
+              :disabled="!!feedback || recordingVideo"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/>
@@ -137,7 +191,7 @@
         <div v-if="error" class="error-msg qna-error">{{ error }}</div>
 
         <div v-if="!feedback" class="qna-actions">
-          <button class="btn-primary" @click="submitAnswer" :disabled="submitting || !answer.trim()">
+          <button class="btn-primary" @click="submitAnswer" :disabled="submitting || !answer.trim() || recordingVideo">
             <span v-if="submitting" class="spinner spinner-sm"></span>
             {{ submitting ? 'Thinking…' : 'Get Feedback' }}
           </button>
@@ -225,7 +279,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import axios from 'axios';
 
 const applications = ref([]);
@@ -251,6 +305,24 @@ const summary = ref(null);
 const loadingSummary = ref(false);
 const summaryError = ref('');
 const downloading = ref(null);
+
+const practiceMode = ref('ai'); // 'ai' | 'common'
+
+const cameraEnabled = ref(false);
+const cameraSupported = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
+const faceDetectionSupported = typeof window !== 'undefined' && 'FaceDetector' in window;
+const faceDetected = ref(null); // null = unknown/checking, true/false once detection runs
+const videoEl = ref(null);
+let cameraStream = null;
+let faceDetector = null;
+let faceCheckTimer = null;
+
+const recordingVideo = ref(false);
+const recordingDuration = ref(0);
+const recordedVideoUrl = ref(null);
+let mediaRecorder = null;
+let recordedChunks = [];
+let recordingTimer = null;
 
 const SpeechRecognitionCtor = typeof window !== 'undefined'
   ? (window.SpeechRecognition || window.webkitSpeechRecognition)
@@ -282,6 +354,15 @@ function avatarBg(name) {
   return `hsl(${hue},50%,30%)`;
 }
 
+function commonQuestions(app) {
+  return [
+    'Please introduce yourself.',
+    `Why do you want to join ${app.company} as a ${app.role}? What do you know about us?`,
+    'What is your reason for wanting to leave your current company?',
+    'Is there anything you would like to ask us?',
+  ];
+}
+
 function selectApp(app) {
   selectedApp.value = app;
   error.value = '';
@@ -291,6 +372,7 @@ function selectApp(app) {
 function reset() {
   stopSpeaking();
   stopRecording();
+  stopCamera();
   selectedApp.value = null;
   questions.value = [];
   currentIndex.value = 0;
@@ -304,10 +386,23 @@ function reset() {
 }
 
 async function startPractice() {
-  loadingQuestions.value = true;
   error.value = '';
   stopSpeaking();
   stopRecording();
+
+  if (practiceMode.value === 'common') {
+    questions.value = commonQuestions(selectedApp.value);
+    currentIndex.value = 0;
+    answer.value = '';
+    feedback.value = null;
+    sessionLog.value = [];
+    summary.value = null;
+    summaryError.value = '';
+    stage.value = 'qna';
+    return;
+  }
+
+  loadingQuestions.value = true;
   try {
     const { data } = await axios.post(`/api/applications/${selectedApp.value.id}/interview/questions`);
     questions.value = data.questions;
@@ -333,6 +428,7 @@ async function submitAnswer() {
     const { data } = await axios.post(`/api/applications/${selectedApp.value.id}/interview/feedback`, {
       question: currentQuestion.value,
       answer: answer.value,
+      duration_seconds: recordedVideoUrl.value ? recordingDuration.value : undefined,
     });
     feedback.value = data;
   } catch (e) {
@@ -345,6 +441,7 @@ async function submitAnswer() {
 function nextQuestion() {
   stopSpeaking();
   stopRecording();
+  discardRecording();
   sessionLog.value.push({
     question: currentQuestion.value,
     answer: answer.value,
@@ -475,6 +572,7 @@ function toggleRecording() {
     recognition?.stop();
     return;
   }
+  error.value = '';
   recognition = new SpeechRecognitionCtor();
   recognition.lang = voiceLang.value;
   recognition.interimResults = false;
@@ -484,13 +582,125 @@ function toggleRecording() {
     answer.value = answer.value.trim() ? `${answer.value.trim()} ${transcript}` : transcript;
   };
   recognition.onend = () => { recording.value = false; };
-  recognition.onerror = () => { recording.value = false; };
+  recognition.onerror = (e) => {
+    recording.value = false;
+    if (e.error === 'no-speech') {
+      error.value = 'No speech detected. Try again and speak clearly into your microphone.';
+    } else if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      error.value = 'Microphone access was denied. Allow microphone permissions for this site and try again.';
+    } else if (e.error === 'audio-capture') {
+      error.value = 'No microphone was found. Connect a microphone and try again.';
+    } else if (e.error === 'network') {
+      error.value = 'Speech recognition needs an internet connection. Check your connection and try again.';
+    } else {
+      error.value = `Speech recognition error: ${e.error}`;
+    }
+  };
   recording.value = true;
   recognition.start();
 }
 
 function stopRecording() {
   if (recording.value) recognition?.stop();
+}
+
+async function toggleCamera() {
+  if (cameraEnabled.value) {
+    stopCamera();
+    return;
+  }
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  } catch {
+    error.value = 'Could not access the camera/microphone. Check your browser permissions.';
+    return;
+  }
+  cameraEnabled.value = true;
+  await nextTick();
+  if (videoEl.value) videoEl.value.srcObject = cameraStream;
+  if (faceDetectionSupported) {
+    faceDetector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+    faceCheckTimer = setInterval(checkFace, 1500);
+  }
+}
+
+function formatDuration(totalSeconds) {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function toggleVideoRecording() {
+  if (recordingVideo.value) {
+    mediaRecorder?.stop();
+    if (recording.value) stopRecording();
+    return;
+  }
+  if (!cameraStream) return;
+  discardRecording();
+  try {
+    mediaRecorder = new MediaRecorder(cameraStream);
+  } catch {
+    error.value = 'Recording is not supported in this browser.';
+    return;
+  }
+  recordedChunks = [];
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0) recordedChunks.push(e.data);
+  };
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'video/webm' });
+    recordedVideoUrl.value = URL.createObjectURL(blob);
+    recordingVideo.value = false;
+    if (recordingTimer) {
+      clearInterval(recordingTimer);
+      recordingTimer = null;
+    }
+  };
+  recordingDuration.value = 0;
+  recordingVideo.value = true;
+  recordingTimer = setInterval(() => { recordingDuration.value++; }, 1000);
+  mediaRecorder.start();
+  if (recognitionSupported && !recording.value) toggleRecording();
+}
+
+function discardRecording() {
+  if (recordedVideoUrl.value) {
+    URL.revokeObjectURL(recordedVideoUrl.value);
+    recordedVideoUrl.value = null;
+  }
+  recordingDuration.value = 0;
+}
+
+async function checkFace() {
+  if (!videoEl.value || videoEl.value.readyState < 2 || !faceDetector) return;
+  try {
+    const faces = await faceDetector.detect(videoEl.value);
+    faceDetected.value = faces.length > 0;
+  } catch {
+    faceDetected.value = null;
+  }
+}
+
+function stopCamera() {
+  if (recordingVideo.value) mediaRecorder?.stop();
+  if (recordingTimer) {
+    clearInterval(recordingTimer);
+    recordingTimer = null;
+  }
+  discardRecording();
+  recordingVideo.value = false;
+  if (faceCheckTimer) {
+    clearInterval(faceCheckTimer);
+    faceCheckTimer = null;
+  }
+  if (cameraStream) {
+    cameraStream.getTracks().forEach((t) => t.stop());
+    cameraStream = null;
+  }
+  faceDetector = null;
+  faceDetected.value = null;
+  cameraEnabled.value = false;
 }
 
 onMounted(async () => {
@@ -511,6 +721,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   stopSpeaking();
   stopRecording();
+  stopCamera();
   if (speechSupported) window.speechSynthesis.onvoiceschanged = null;
 });
 </script>
@@ -567,6 +778,28 @@ onBeforeUnmount(() => {
 
 .prep-ready-desc { font-size: 13px; color: var(--text-2); line-height: 1.6; }
 
+/* Mode picker */
+.mode-picker { display: flex; gap: 12px; width: 100%; }
+.mode-card {
+  flex: 1;
+  text-align: left;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  font-family: inherit;
+  color: var(--text);
+}
+.mode-card:hover { border-color: var(--primary); }
+.mode-card.active { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary-subtle); background: var(--primary-subtle); }
+.mode-card strong { font-size: 13px; }
+.mode-card span { font-size: 12px; color: var(--text-2); line-height: 1.5; }
+
 /* Q&A */
 .qna-wrap { display: flex; flex-direction: column; gap: 16px; }
 
@@ -585,6 +818,37 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   transition: width 0.3s ease;
 }
+
+/* Question + camera side-by-side */
+.qna-main-row { display: flex; gap: 16px; align-items: stretch; }
+.qna-main-row .qna-question-card { flex: 1; min-width: 0; }
+.qna-main-row .camera-card { flex: 0 0 320px; }
+
+/* Camera check */
+.camera-card { display: flex; flex-direction: column; gap: 10px; }
+.camera-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.camera-body { display: flex; flex-direction: column; gap: 8px; }
+.camera-preview {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-sm);
+  background: #000;
+  object-fit: cover;
+}
+.camera-live { transform: scaleX(-1); }
+.camera-record-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.camera-note { margin-top: auto; }
+.face-status {
+  display: inline-block;
+  font-size: 12px; font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-2);
+  width: fit-content;
+}
+.face-status.face-ok { color: var(--success); background: rgba(34, 197, 94, 0.1); }
+.face-status.face-warn { color: var(--danger); background: var(--danger-bg); }
 
 .qna-question-card { display: flex; flex-direction: column; gap: 10px; }
 .qna-question-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -644,6 +908,9 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 768px) {
+  .mode-picker { flex-direction: column; }
+  .qna-main-row { flex-direction: column; }
+  .qna-main-row .camera-card { flex: 1; width: 100%; }
   .qna-top { flex-direction: column; align-items: flex-start; gap: 8px; }
   .qna-question-head { flex-wrap: wrap; gap: 8px; }
   .qna-answer-head { flex-direction: column; align-items: flex-start; }

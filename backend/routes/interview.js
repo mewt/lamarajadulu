@@ -19,9 +19,11 @@ Return ONLY a raw JSON array of exactly 5 question strings, in the order they sh
 
 const FEEDBACK_SYSTEM_PROMPT = `You are a supportive but honest interview coach helping a candidate practice for a real job interview.
 
-You'll be given the candidate's CV, the target job, an interview question, and the candidate's answer.
+You'll be given the candidate's CV, the target job, an interview question, the candidate's answer, and optionally how long they took to deliver it.
 
 STRICT GROUNDING RULE for "improved_answer": it must use ONLY experience, employers, projects, skills, and metrics that already appear in the candidate's CV. Never invent new experience, companies, numbers, or skills. You may restructure the answer (e.g. using the STAR method - Situation, Task, Action, Result) and draw in relevant details from elsewhere in the CV that the candidate didn't mention, but every fact must be traceable to the CV.
+
+If a time taken is provided, briefly note in "feedback" whether the pacing felt appropriate for this type of question (e.g. too rushed, well-paced, or rambling).
 
 Respond with ONLY raw JSON matching this schema:
 {
@@ -170,13 +172,14 @@ router.post('/:id/interview/feedback', async (req, res) => {
   const app = loadApp(req, res);
   if (!app) return;
 
-  const { question, answer } = req.body;
+  const { question, answer, duration_seconds } = req.body;
   if (!question || !answer || !answer.trim()) {
     return res.status(400).json({ error: 'An answer is required' });
   }
 
   try {
-    const userPrompt = `${buildContext(app)}\n\n---\n\nINTERVIEW QUESTION: ${question}\n\nCANDIDATE'S ANSWER: ${answer}`;
+    const timing = duration_seconds ? `\n\nTIME TAKEN TO ANSWER: approximately ${duration_seconds} seconds` : '';
+    const userPrompt = `${buildContext(app)}\n\n---\n\nINTERVIEW QUESTION: ${question}\n\nCANDIDATE'S ANSWER: ${answer}${timing}`;
 
     const response = await deepseek.chat.completions.create({
       model: 'deepseek-chat',
